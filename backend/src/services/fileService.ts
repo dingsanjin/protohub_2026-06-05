@@ -87,7 +87,7 @@ function findViteProjectRoot(extractDir: string, depth = 0): string | null {
 function runBuild(projectDir: string, logFile: string, timeoutMs: number): Promise<{ ok: boolean; code: number | null; signal: string | null }> {
   return new Promise((resolve) => {
     const logStream = fs.createWriteStream(logFile, { flags: 'a' });
-    const child = spawn('bash', ['-c', 'npm install --no-audit --no-fund --loglevel=error && npm run build 2>&1'], {
+    const child = spawn('bash', ['-c', 'npm install --no-audit --no-fund --loglevel=error && (npm run build 2>&1 || npx vite build --logLevel warn 2>&1)'], {
       cwd: projectDir,
       env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=768', CI: '1' },
     });
