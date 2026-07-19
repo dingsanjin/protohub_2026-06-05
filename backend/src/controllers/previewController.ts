@@ -155,9 +155,24 @@ export async function handleServeFile(req: Request, res: Response) {
       }
       res.send(html);
     });
+  } else if (ext === '.css') {
+    // CSS 里 url(/xxx) 重写为 url(xxx)，让 base 路径生效
+    require('fs').readFile(fullPath, 'utf8', (err: any, data: string) => {
+      if (err) return res.status(500).json({ success: false, message: '读取失败' });
+      res.type('text/css; charset=utf-8').send(rewriteCssUrls(data));
+    });
   } else {
     res.sendFile(fullPath);
   }
+}
+
+// 重写 CSS 里的 url(/xxx) → url(xxx) 让相对路径生效
+function rewriteCssUrls(css: string): string {
+  // url(/xxx) 和 url('/xxx') 和 url("/xxx")
+  return css.replace(
+    /url\(\s*['"]?(\/[^'")]+)['"]?\s*\)/g,
+    (_m, p) => `url(${p.replace(/^\/+/, '')})`
+  );
 }
 
 export async function handleListFolder(req: Request, res: Response) {
