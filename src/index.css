@@ -2619,7 +2619,8 @@ button {
 }
 
 .preview-sidebar {
-  width: 240px;
+  width: 280px;
+  min-width: 280px;
   background: #fff;
   border-right: 1px solid #e8e8e8;
   display: flex;
@@ -2631,6 +2632,7 @@ button {
 
 .preview-sidebar.collapsed {
   width: 0;
+  min-width: 0;
   border-right: none;
 }
 
@@ -2642,6 +2644,7 @@ button {
   justify-content: space-between;
   border-bottom: 1px solid #f0f0f0;
   flex-shrink: 0;
+  gap: 8px;
 }
 
 .preview-project-name {
@@ -2651,6 +2654,8 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .preview-sidebar-toggle {
@@ -2675,6 +2680,7 @@ button {
 .preview-sidebar-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 4px;
 }
 
@@ -2684,13 +2690,24 @@ button {
 }
 
 .preview-sidebar-body .ant-tree-treenode {
-  padding: 2px 0;
+  padding: 1px 0;
 }
 
 .preview-sidebar-body .ant-tree-node-content-wrapper {
   border-radius: 6px;
-  padding: 2px 8px !important;
+  padding: 4px 8px !important;
   transition: background 0.15s;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.preview-sidebar-body .ant-tree-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 200px;
+  vertical-align: middle;
 }
 
 .preview-sidebar-body .ant-tree-node-content-wrapper:hover {

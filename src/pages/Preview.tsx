@@ -131,6 +131,20 @@ export default function Preview() {
       selectable: n.type === 'page',
     }));
 
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
+
+  useEffect(() => {
+    // 只默认展开第一层（项目根 + 直接子文件夹）
+    if (pageTree.length > 0 && expandedKeys.length === 0) {
+      const first = pageTree[0];
+      const keys: React.Key[] = [first.path];
+      if (first.children) {
+        first.children.forEach((c) => keys.push(c.path));
+      }
+      setExpandedKeys(keys);
+    }
+  }, [pageTree, expandedKeys.length]);
+
   const onTreeSelect = (keys: React.Key[]) => {
     if (keys.length > 0) setActivePage(String(keys[0]));
   };
@@ -160,7 +174,8 @@ export default function Preview() {
                 <div className="preview-sidebar-body">
                   <Tree
                     showIcon
-                    defaultExpandAll
+                    expandedKeys={expandedKeys}
+                    onExpand={(keys) => setExpandedKeys(keys)}
                     treeData={toTreeData(pageTree)}
                     selectedKeys={activePage ? [activePage] : []}
                     onSelect={onTreeSelect}

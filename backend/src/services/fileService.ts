@@ -379,6 +379,14 @@ interface PageTreeNode {
   children?: PageTreeNode[];
 }
 
+// 扫描目录时跳过的干扰目录（构建产物 / 依赖 / 源码控制）
+const SKIP_DIRS = new Set([
+  'node_modules', 'dist', 'build', 'out', '.next', '.nuxt', '.output',
+  'coverage', '__pycache__', '.cache', '.parcel-cache', '.turbo',
+  '.git', '.github', '.gitlab', '.vscode', '.idea', '.DS_Store',
+  '__MACOSX', 'resources', 'images',
+]);
+
 function walkDir(basePath: string, relPath: string): PageTreeNode[] {
   const fullPath = path.join(STORAGE_PATH, basePath, relPath);
   if (!fs.existsSync(fullPath)) return [];
@@ -390,7 +398,8 @@ function walkDir(basePath: string, relPath: string): PageTreeNode[] {
   const pages: PageTreeNode[] = [];
 
   for (const entry of entries) {
-    if (entry.name.startsWith('.') || entry.name === 'resources' || entry.name === 'images' || entry.name === '__MACOSX') continue;
+    if (entry.name.startsWith('.') && entry.name !== '.well-known') continue;
+    if (SKIP_DIRS.has(entry.name)) continue;
     const itemRel = relPath ? path.join(relPath, entry.name) : entry.name;
     if (entry.isDirectory()) {
       const children = walkDir(basePath, itemRel);
