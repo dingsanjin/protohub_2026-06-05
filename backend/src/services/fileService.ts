@@ -188,8 +188,8 @@ export async function uploadFile(file: Express.Multer.File, userId: number, fold
 
   // 解压型 + Vite 项目：异步触发 build
   // 立即返回（type=html, storage_path=源码入口），后台跑 build，成功后更新 storage_path → dist 入口
-  if (type === 'html' && storagePath && !fs.existsSync(path.join(STORAGE_PATH, storagePath))) {
-    // storage_path 是多段文件（解压型）
+  if (type === 'html' && storagePath && fs.existsSync(path.join(STORAGE_PATH, storagePath))) {
+    // 解压出来的入口文件存在 → 找 Vite 项目根
     const extractDir = path.join(STORAGE_PATH, String(userId), shortId);
     const projectRoot = findViteProjectRoot(extractDir);
     if (projectRoot) {
