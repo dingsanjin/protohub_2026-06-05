@@ -194,18 +194,15 @@ export async function handlePageTree(req: Request, res: Response) {
       return;
     }
 
-    // 目录型（zip/axure 解压）：从 entry_path 反推子目录
+    // 目录型（zip/axure 解压）：从 storage_path 反推子目录
     // 这样 build 后的项目只展示 dist/ 内容，不展示源码层目录
     const extractRoot = path.join(String(result.file.user_id), result.file.short_id);
     let scanRoot = extractRoot;
-    if (result.file.entry_path || result.file.storage_path) {
-      // entry_path 形如 "1/shortId/dist/index.html" → 取其所在目录 "1/shortId/dist"
-      const entryFile = result.file.entry_path || result.file.storage_path;
-      const entryDir = path.dirname(entryFile);
-      // 只在 entry 还在 extractRoot 下时才用 entryDir
-      if (entryDir.startsWith(extractRoot + path.sep) || entryDir === extractRoot) {
-        scanRoot = entryDir;
-      }
+    const entryFile = result.file.storage_path;
+    const entryDir = path.dirname(entryFile);
+    // 只在 entry 还在 extractRoot 下时才用 entryDir
+    if (entryDir.startsWith(extractRoot + path.sep) || entryDir === extractRoot) {
+      scanRoot = entryDir;
     }
     const rawTree = getPageTreeForDir(scanRoot);
     // walkDir 返回的 path 是相对 scanRoot 的，给它补上 storage 绝对路径前缀
