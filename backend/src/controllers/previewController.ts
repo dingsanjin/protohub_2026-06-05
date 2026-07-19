@@ -118,7 +118,9 @@ export async function handleServeFile(req: Request, res: Response) {
   const contentType = mimeTypes[ext] || 'application/octet-stream';
   res.setHeader('Content-Type', contentType);
 
-  // 对 HTML 注入 <base href>，让相对路径资源正确加载
+  // 对 HTML 注入 <base href>，并把 /开头的绝对路径引用重写为相对路径
+  // 这样无论 HTML 是开发模式（/src/main.tsx）还是构建产物（相对路径），
+  // 都能在 iframe 里正确加载依赖资源
   if (ext === '.html' || ext === '.htm') {
     const dir = path.dirname(rel);
     const baseHref = `/api/preview/files/${dir ? dir + '/' : ''}`;
@@ -126,12 +128,33 @@ export async function handleServeFile(req: Request, res: Response) {
       if (err) {
         return res.status(500).json({ success: false, message: '读取失败' });
       }
-      // 注入 base，并修复 target=_blank
+      // 计算要把绝对路径转换为的相对深度
+      // 假设 HTML 在 /api/preview/files/1/abc/sub1/ 里，要访问 /src/main.tsx，
+      // 浏览器会请求 /api/preview/files/src/main.tsx（错）。重写为 src/main.tsx（相对当前 HTML），
+      // 浏览器会解析为 /api/preview/files/1/abc/sub1/src/main.tsx（对）。
+      const segments = (dir ? dir.split('/').filter(Boolean) : []).length;
+      const up = segments > 0 ? '../'.repeat(segments) : './';
       let html = data;
+      // 1) 把 href / xxx → href xxx（相对当前 HTML）
+      //    把 src / xxx → src xxx
+      //    注意：跳过已经是 http://、https://、//、data: 的绝对 URL
+      html = html.replace(
+        /\b(href|src)\s*=\s*"(\/[^"]*)"/gi,
+        (m, attr, p) => {
+          // / 开头的相对站点根路径，重写为相对当前 HTML 的路径
+          return `${attr}="${up}${p.replace(/^\//, '')}"`;
+        }
+      );
+      html = html.replace(
+        /\b(href|src)\s*=\s*'(\/[^']*)'/gi,
+        (m, attr, p) => `${attr}='${up}${p.replace(/^\//, '')}'`
+      );
+      // 2) 注入 base href + target=_blank 修复
+      const inject = `<head><base href="${baseHref}"><script>document.addEventListener('click',function(e){if(e.target&&e.target.tagName==='A'&&e.target.target==='_blank'){e.preventDefault();window.open(e.target.href,'_blank');}});</script>`;
       if (/<head>/i.test(html)) {
-        html = html.replace(/<head>/i, `<head><base href="${baseHref}"><script>document.addEventListener('click',function(e){if(e.target&&e.target.tagName==='A'&&e.target.target==='_blank'){e.preventDefault();window.open(e.target.href,'_blank');}});</script>`);
+        html = html.replace(/<head>/i, inject);
       } else {
-        html = `<head><base href="${baseHref}"></head>${html}`;
+        html = `${inject}</head>${html}`;
       }
       res.send(html);
     });
