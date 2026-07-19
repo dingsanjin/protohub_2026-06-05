@@ -209,20 +209,13 @@ export async function handlePageTree(req: Request, res: Response) {
       return;
     }
 
-    // 目录型（zip/axure 解压）：从 storage_path 反推子目录
-    // 这样 build 后的项目只展示 dist/ 内容，不展示源码层目录
+    // 目录型（zip/axure 解压）：从解压根目录扫描所有 HTML
+    // walkDir 已经过滤了 node_modules/dist/.od-skills 等干扰目录
     const extractRoot = path.join(String(result.file.user_id), result.file.short_id);
-    let scanRoot = extractRoot;
-    const entryFile = result.file.storage_path;
-    const entryDir = path.dirname(entryFile);
-    // 只在 entry 还在 extractRoot 下时才用 entryDir
-    if (entryDir.startsWith(extractRoot + path.sep) || entryDir === extractRoot) {
-      scanRoot = entryDir;
-    }
-    const rawTree = getPageTreeForDir(scanRoot);
-    // walkDir 返回的 path 是相对 scanRoot 的，给它补上 storage 绝对路径前缀
+    const rawTree = getPageTreeForDir(extractRoot);
+    // walkDir 返回的 path 是相对 extractRoot 的，给它补上 storage 绝对路径前缀
     const prefixPath = (node: any) => {
-      node.path = path.join(scanRoot, node.path);
+      node.path = path.join(extractRoot, node.path);
       if (node.children) node.children.forEach(prefixPath);
     };
     rawTree.forEach(prefixPath);

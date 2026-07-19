@@ -11,6 +11,14 @@ import type { FileData, FileListParams } from '../types';
 
 const STORAGE_PATH = process.env.FILE_STORAGE_PATH || './uploads';
 
+// 解压时跳过的目录（工具/缓存/版本控制，递归时直接忽略）
+const EXTRACT_SKIP_DIRS = new Set([
+  '__MACOSX', '.git', '.github', '.gitlab', '.svn', '.hg',
+  'node_modules', '.next', '.nuxt', '.cache', '.parcel-cache', '.turbo',
+  'dist', 'build', 'out', 'coverage',
+  '.od-skills', '.claude', '.trae', '.idea', '.vscode',
+]);
+
 async function extractZip(buffer: Buffer, targetDir: string): Promise<string | null> {
   try {
     await fs.promises.mkdir(targetDir, { recursive: true });
@@ -25,21 +33,25 @@ async function extractZip(buffer: Buffer, targetDir: string): Promise<string | n
     const findEntryPoint = async (dir: string): Promise<string | null> => {
       const files = await fs.promises.readdir(dir, { withFileTypes: true });
 
+      // 先在当前层找 index.html（短路：浅层优先）
       for (const file of files) {
-        const fullPath = path.join(dir, file.name);
-
-        if (file.isDirectory()) {
-          const found = await findEntryPoint(fullPath);
-          if (found) return found;
-        } else if (file.isFile() && (file.name === 'index.html' || file.name === 'index.htm')) {
-          return fullPath;
+        if (file.isFile() && (file.name === 'index.html' || file.name === 'index.htm')) {
+          return path.join(dir, file.name);
         }
       }
-
+      // 再递归子目录（跳过干扰目录）
       for (const file of files) {
-        const fullPath = path.join(dir, file.name);
+        if (file.isDirectory()) {
+          if (EXTRACT_SKIP_DIRS.has(file.name)) continue;
+          if (file.name.startsWith('.') && file.name !== '.well-known') continue;
+          const found = await findEntryPoint(path.join(dir, file.name));
+          if (found) return found;
+        }
+      }
+      // 最后兜底：当前层第一个 .html
+      for (const file of files) {
         if (file.isFile() && (file.name.endsWith('.html') || file.name.endsWith('.htm'))) {
-          return fullPath;
+          return path.join(dir, file.name);
         }
       }
 
