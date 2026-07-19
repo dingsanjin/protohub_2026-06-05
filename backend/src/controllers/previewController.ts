@@ -146,8 +146,8 @@ export async function handleServeFile(req: Request, res: Response) {
         /\b(href|src)\s*=\s*'(\/[^']*)'/gi,
         (m, attr, p) => `${attr}='${p.replace(/^\/+/, '')}'`
       );
-      // 2) 注入 base href + target=_blank 修复
-      const inject = `<head><base href="${baseHref}"><script>document.addEventListener('click',function(e){if(e.target&&e.target.tagName==='A'&&e.target.target==='_blank'){e.preventDefault();window.open(e.target.href,'_blank');}});</script>`;
+      // 2) 注入 base href（不注入额外脚本，避免干扰 React/Vue 等 SPA）
+      const inject = `<head><base href="${baseHref}">`;
       if (/<head>/i.test(html)) {
         html = html.replace(/<head>/i, inject);
       } else {
