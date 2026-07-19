@@ -1,0 +1,65 @@
+{
+  "models": [
+    {
+      "name": "MiniMax-M3",
+      "provider": "MiniMax / 自定义模型",
+      "model_id": "待补充",
+      "description": "第一优先级模型。写代码、设计原型、写 PPT、写文档都优先使用。"
+    },
+    {
+      "name": "ARC-Auto",
+      "provider": "ARC / 自定义自动切换模型",
+      "model_id": "待补充",
+      "description": "第二优先级模型。适合简单任务，也可作为通用自动切换模型使用。"
+    },
+    {
+      "name": "Doubao-Seed-2.0-Code",
+      "provider": "火山引擎",
+      "model_id": "待补充",
+      "description": "第三优先级模型。写代码表现不错，当前两个优先模型额度用完后使用，代码任务也可优先考虑。"
+    },
+    {
+      "name": "GLM-5.1",
+      "provider": "智谱 / 自定义模型",
+      "model_id": "待补充",
+      "description": "兜底备选模型。前三个优先级不可用或额度不足时使用。"
+    }
+  ],
+  "strategies": {
+    "code": {
+      "name": "代码开发",
+      "keywords": ["写代码", "代码", "编程", "开发", "bug", "调试", "重构", "实现", "API", "接口", "组件", "函数", "变量", "算法", "数据结构"],
+      "model_priority": ["MiniMax-M3", "ARC-Auto", "Doubao-Seed-2.0-Code", "GLM-5.1"]
+    },
+    "writing": {
+      "name": "文档写作",
+      "keywords": ["写文档", "文档", "报告", "文章", "文案", "总结", "说明", "描述", "介绍", "需求", "设计", "规划", "PPT", "幻灯片", "汇报"],
+      "model_priority": ["MiniMax-M3", "ARC-Auto", "Doubao-Seed-2.0-Code", "GLM-5.1"]
+    },
+    "analysis": {
+      "name": "数据分析",
+      "keywords": ["分析", "数据", "统计", "图表", "报表", "预测", "趋势", "对比", "指标", "计算", "量化"],
+      "model_priority": ["MiniMax-M3", "ARC-Auto", "GLM-5.1", "Doubao-Seed-2.0-Code"]
+    },
+    "design": {
+      "name": "设计",
+      "keywords": ["设计", "UI", "界面", "原型", "布局", "样式", "配色", "交互", "用户体验"],
+      "model_priority": ["MiniMax-M3", "ARC-Auto", "Doubao-Seed-2.0-Code", "GLM-5.1"]
+    },
+    "research": {
+      "name": "研究调研",
+      "keywords": ["研究", "调研", "搜索", "查找", "资料", "文献", "论文", "比较", "对比"],
+      "model_priority": ["MiniMax-M3", "ARC-Auto", "GLM-5.1", "Doubao-Seed-2.0-Code"]
+    },
+    "simple": {
+      "name": "简单任务",
+      "keywords": ["简单", "快速", "随便", "看一下", "解释", "翻译", "整理", "改一句", "小改"],
+      "model_priority": ["ARC-Auto", "MiniMax-M3", "Doubao-Seed-2.0-Code", "GLM-5.1"]
+    },
+    "default": {
+      "name": "默认",
+      "keywords": [],
+      "model_priority": ["MiniMax-M3", "ARC-Auto", "Doubao-Seed-2.0-Code", "GLM-5.1"]
+    }
+  }
+}
