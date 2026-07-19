@@ -128,26 +128,18 @@ export async function handleServeFile(req: Request, res: Response) {
       if (err) {
         return res.status(500).json({ success: false, message: '读取失败' });
       }
-      // 计算要把绝对路径转换为的相对深度
-      // 假设 HTML 在 /api/preview/files/1/abc/sub1/ 里，要访问 /src/main.tsx，
-      // 浏览器会请求 /api/preview/files/src/main.tsx（错）。重写为 src/main.tsx（相对当前 HTML），
-      // 浏览器会解析为 /api/preview/files/1/abc/sub1/src/main.tsx（对）。
-      const segments = (dir ? dir.split('/').filter(Boolean) : []).length;
-      const up = segments > 0 ? '../'.repeat(segments) : './';
+      // 1) 把 href /xxx src /xxx 去掉前导 /，变成相对路径
+      //    base href 会负责把它解析到当前 HTML 所在目录下
+      //    这样 /src/main.tsx → src/main.tsx → /api/preview/files/<html_dir>/src/main.tsx ✅
+      //    （保留 http://、https://、//、data: 不动）
       let html = data;
-      // 1) 把 href / xxx → href xxx（相对当前 HTML）
-      //    把 src / xxx → src xxx
-      //    注意：跳过已经是 http://、https://、//、data: 的绝对 URL
       html = html.replace(
         /\b(href|src)\s*=\s*"(\/[^"]*)"/gi,
-        (m, attr, p) => {
-          // / 开头的相对站点根路径，重写为相对当前 HTML 的路径
-          return `${attr}="${up}${p.replace(/^\//, '')}"`;
-        }
+        (m, attr, p) => `${attr}="${p.replace(/^\/+/, '')}"`
       );
       html = html.replace(
         /\b(href|src)\s*=\s*'(\/[^']*)'/gi,
-        (m, attr, p) => `${attr}='${up}${p.replace(/^\//, '')}'`
+        (m, attr, p) => `${attr}='${p.replace(/^\/+/, '')}'`
       );
       // 2) 注入 base href + target=_blank 修复
       const inject = `<head><base href="${baseHref}"><script>document.addEventListener('click',function(e){if(e.target&&e.target.tagName==='A'&&e.target.target==='_blank'){e.preventDefault();window.open(e.target.href,'_blank');}});</script>`;
