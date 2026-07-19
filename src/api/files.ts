@@ -12,8 +12,8 @@ export async function uploadFile(
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const token = getAuthToken();
-    const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
-    xhr.open('POST', `${baseURL}/api/files/upload`, true);
+    const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:3000/api';
+    xhr.open('POST', `${baseURL}/files/upload`, true);
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
