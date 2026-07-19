@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 import bcrypt from 'bcrypt';
 import unzipper from 'unzipper';
 import { createFile, findFileById, findFileByShortId, updateFile, deleteFile as deleteFileRepo, getUserFiles, incrementVisitCount } from '../repositories/fileRepository';
@@ -13,20 +14,20 @@ const STORAGE_PATH = process.env.FILE_STORAGE_PATH || './uploads';
 async function extractZip(buffer: Buffer, targetDir: string): Promise<string | null> {
   try {
     await fs.promises.mkdir(targetDir, { recursive: true });
-    
+
     await unzipper.Open.buffer(buffer)
       .then((d) => d.extract({ path: targetDir }));
-    
+
     const entries = await fs.promises.readdir(targetDir);
-    
+
     let entryPoint = null;
-    
+
     const findEntryPoint = async (dir: string): Promise<string | null> => {
       const files = await fs.promises.readdir(dir, { withFileTypes: true });
-      
+
       for (const file of files) {
         const fullPath = path.join(dir, file.name);
-        
+
         if (file.isDirectory()) {
           const found = await findEntryPoint(fullPath);
           if (found) return found;
@@ -34,23 +35,102 @@ async function extractZip(buffer: Buffer, targetDir: string): Promise<string | n
           return fullPath;
         }
       }
-      
+
       for (const file of files) {
         const fullPath = path.join(dir, file.name);
         if (file.isFile() && (file.name.endsWith('.html') || file.name.endsWith('.htm'))) {
           return fullPath;
         }
       }
-      
+
       return null;
     };
-    
+
     entryPoint = await findEntryPoint(targetDir);
-    
+
     return entryPoint;
   } catch {
     return null;
   }
+}
+
+// 在解压目录里找 Vite 项目根（含 package.json + vite.config）
+// 最多往下找 3 层，避免误把 node_modules 当根
+function findViteProjectRoot(extractDir: string, depth = 0): string | null {
+  if (depth > 3) return null;
+  const pkgPath = path.join(extractDir, 'package.json');
+  if (fs.existsSync(pkgPath)) {
+    const hasViteConfig = ['vite.config.ts', 'vite.config.js', 'vite.config.mjs', 'vite.config.cjs']
+      .some(f => fs.existsSync(path.join(extractDir, f)));
+    if (hasViteConfig) return extractDir;
+    // 检查 package.json 里的 devDependencies / dependencies
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      const all = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+      if (all.vite) return extractDir;
+    } catch {}
+  }
+  // 递归子目录
+  try {
+    const entries = fs.readdirSync(extractDir, { withFileTypes: true });
+    for (const e of entries) {
+      if (e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules' && e.name !== '__MACOSX') {
+        const found = findViteProjectRoot(path.join(extractDir, e.name), depth + 1);
+        if (found) return found;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+// 异步跑 npm install + npm run build，输出写到 log 文件
+function runBuild(projectDir: string, logFile: string, timeoutMs: number): Promise<{ ok: boolean; code: number | null; signal: string | null }> {
+  return new Promise((resolve) => {
+    const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+    const child = spawn('bash', ['-c', 'npm install --no-audit --no-fund --loglevel=error && npm run build 2>&1'], {
+      cwd: projectDir,
+      env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=768', CI: '1' },
+    });
+    child.stdout.pipe(logStream);
+    child.stderr.pipe(logStream);
+    const timer = setTimeout(() => {
+      try { child.kill('SIGTERM'); } catch {}
+      logStream.write('\n\n[protohub-build] TIMEOUT after ' + timeoutMs + 'ms\n');
+      resolve({ ok: false, code: null, signal: 'SIGTERM' });
+    }, timeoutMs);
+    child.on('close', (code, signal) => {
+      clearTimeout(timer);
+      logStream.end();
+      resolve({ ok: code === 0, code, signal });
+    });
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      logStream.write('\n\n[protohub-build] SPAWN ERROR: ' + err.message + '\n');
+      logStream.end();
+      resolve({ ok: false, code: null, signal: null });
+    });
+  });
+}
+
+// 在 build 后的 dist/ 里找 index.html
+function findDistEntry(projectDir: string): string | null {
+  const distDir = path.join(projectDir, 'dist');
+  if (!fs.existsSync(distDir)) return null;
+  const candidates = ['index.html', 'index.htm'];
+  for (const c of candidates) {
+    const p = path.join(distDir, c);
+    if (fs.existsSync(p)) return p;
+  }
+  // 找第一个 .html
+  try {
+    const files = fs.readdirSync(distDir, { withFileTypes: true });
+    for (const f of files) {
+      if (f.isFile() && f.name.toLowerCase().endsWith('.html')) {
+        return path.join(distDir, f.name);
+      }
+    }
+  } catch {}
+  return null;
 }
 
 export async function uploadFile(file: Express.Multer.File, userId: number, folderId?: number, customName?: string): Promise<FileData> {
@@ -103,6 +183,30 @@ export async function uploadFile(file: Express.Multer.File, userId: number, fold
     const folder = await findFolderById(folderId);
     if (folder && folder.user_id === userId) {
       await createFileFolder(createdFile.id, folderId);
+    }
+  }
+
+  // 解压型 + Vite 项目：异步触发 build
+  // 立即返回（type=html, storage_path=源码入口），后台跑 build，成功后更新 storage_path → dist 入口
+  if (type === 'html' && storagePath && !fs.existsSync(path.join(STORAGE_PATH, storagePath))) {
+    // storage_path 是多段文件（解压型）
+    const extractDir = path.join(STORAGE_PATH, String(userId), shortId);
+    const projectRoot = findViteProjectRoot(extractDir);
+    if (projectRoot) {
+      const logFile = path.join(extractDir, '.protohub-build.log');
+      const createdFileId = createdFile.id;
+      // 异步 fire-and-forget：build 完更新 db
+      setImmediate(() => {
+        runBuild(projectRoot, logFile, 5 * 60 * 1000).then(async (res) => {
+          if (res.ok) {
+            const distEntry = findDistEntry(projectRoot);
+            if (distEntry) {
+              const newStoragePath = path.relative(STORAGE_PATH, distEntry);
+              await updateFile(createdFileId, { storage_path: newStoragePath, size: fs.statSync(distEntry).size });
+            }
+          }
+        }).catch(() => {});
+      });
     }
   }
 
