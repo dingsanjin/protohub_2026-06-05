@@ -1552,8 +1552,6 @@ export default function FileManagement() {
               💡 <b>选单个文件</b>，不是选文件夹。<br/>
               支持 .html / .htm / .zip。旧版本会自动保留为历史。
             </p>
-              当前版本信息会作为历史版本保留，新文件会成为当前版本。
-            </p>
           </div>
 
           <div className="version-list-section" style={{ marginTop: 24 }}>
