@@ -1542,11 +1542,16 @@ export default function FileManagement() {
             <Button
               icon={<CloudUploadOutlined />}
               type="primary"
+              size="large"
+              block
               onClick={() => document.getElementById('version-file-input')?.click()}
             >
-              选择文件上传
+              选择新版本的 HTML 文件
             </Button>
-            <p style={{ color: '#999', fontSize: 12, marginTop: 8 }}>
+            <p style={{ color: '#666', fontSize: 12, marginTop: 12, lineHeight: 1.6 }}>
+              💡 <b>选单个文件</b>，不是选文件夹。<br/>
+              支持 .html / .htm / .zip。旧版本会自动保留为历史。
+            </p>
               当前版本信息会作为历史版本保留，新文件会成为当前版本。
             </p>
           </div>
